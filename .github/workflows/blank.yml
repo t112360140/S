@@ -1,0 +1,24 @@
+name: Update QR Routes
+on:
+  push:
+    paths:
+      - 'repos.json' # 當你手動增加新 ID 時觸發
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Generate Directory Structure
+        run: |
+          # 讀取 JSON 並建立資料夾與 html
+          jq -r 'to_entries[] | .key + " " + .value' repos.json | while read -r id url; do
+            mkdir -p "S/$id"
+            echo "<html><head><meta http-equiv=\"refresh\" content=\"0; url=$url\"></head></html>" > "S/$id/index.html"
+          done
+      - name: Commit and Push
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add S/
+          git commit -m "Auto-update short URLs" || exit 0
+          git push
