@@ -12,7 +12,7 @@ jobs:
         run: |
           # 讀取 JSON 並建立資料夾與 html
           jq -r 'to_entries[] | .key + " " + .value' repos.json | while read -r id url; do
-            mkdir -p "S/$id"
+            mkdir -p "$id"
             echo "<html><head><meta http-equiv=\"refresh\" content=\"0; url=$url\"></head></html>" > "S/$id/index.html"
           done
       - name: Commit and Push
