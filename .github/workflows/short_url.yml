@@ -1,24 +1,63 @@
-name: Update QR Routes
+name: Generate Redirects and QR Codes
 on:
   push:
-    paths:
-      - 'repos.json' # 當你手動增加新 ID 時觸發
+    branches: [ main ]
+    paths: [ 'repos.json' ]
+  workflow_dispatch: # 允許手動觸發
+
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Generate Directory Structure
+      - name: Checkout Main
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies
+        run: pip install qrcode[pil]
+
+      - name: Process Redirects and QR
         run: |
-          # 讀取 JSON 並建立資料夾與 html
-          jq -r 'to_entries[] | .key + " " + .value' repos.json | while read -r id url; do
-            mkdir -p "$id"
-            echo "<html><head><meta http-equiv=\"refresh\" content=\"0; url=$url\"></head></html>" > "$id/index.html"
-          done
-      - name: Commit and Push
-        run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git add .
-          git commit -m "Auto-update short URLs" || exit 0
-          git push
+          mkdir deploy
+          python -c "
+          import json, os, qrcode
+          from qrcode.image.svg import SvgPathFillImage
+
+          # 請將此處改為你的 GitHub 帳號名
+          GITHUB_USER = '${{ github.repository_owner }}'.upper()
+          REPO_NAME = 'S' # 你的儲存庫名稱
+
+          with open('repos.json') as f:
+              data = json.load(f)
+
+          for sid, url in data.items():
+              # 建立資料夾路徑 (例如 deploy/1/)
+              path = f'{sid}'
+              os.makedirs(path, exist_ok=True)
+              
+              # 1. 產生導向 HTML
+              with open(f'{path}/index.html', 'w') as h:
+                  h.write(f'<html><head><meta http-equiv=\"refresh\" content=\"0; url={url}\"></head></html>')
+
+              # 2. 產生 QR Code (Version 1, Level L, Alphanumeric)
+              # 注意：URL 包含目錄 /S/
+              qr_content = f'{GITHUB_USER}.GITHUB.IO/{REPO_NAME}/{sid}'.upper()
+              
+              qr = qrcode.QRCode(
+                  version=1,
+                  error_correction=qrcode.constants.ERROR_CORRECT_L,
+                  box_size=10,
+                  border=0, 
+              )
+              qr.add_data(qr_content)
+              qr.make(fit=True)
+              
+              # 儲存為 SVG 向量檔
+              img = qr.make_image(image_factory=SvgPathFillImage)
+              img.save(f'{path}/qr.svg')
+              print(f'Generated: {sid} for {qr_content}')
+          "
