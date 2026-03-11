@@ -36,7 +36,7 @@ jobs:
 
           for sid, url in data.items():
               # 建立資料夾路徑 (例如 deploy/1/)
-              path = f'{sid}'
+              path = f'deploy/{sid}'
               os.makedirs(path, exist_ok=True)
               
               # 1. 產生導向 HTML
@@ -61,3 +61,10 @@ jobs:
               img.save(f'{path}/qr.svg')
               print(f'Generated: {sid} for {qr_content}')
           "
+          
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: deploy
+          branch: gh-pages
+          clean: true
